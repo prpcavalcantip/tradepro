@@ -182,18 +182,16 @@ import streamlit as st
                  st.error(f"Erro ao gerar sinal: {str(e)}")
                  logging.error(f"Erro: {str(e)}")
 
-     # Botão para executar ordem (opcional, para conta demo)
-     if st.button("Executar Ordem (Demo)", disabled=not connect_iqoption()):
-         amount = 1  # Valor fixo para demo
-         expirations_mode = {'1m': 1, '5m': 5, '15m': 15}[timeframes[selected_timeframe]]
+     # Botão para executar backtest
+     if st.button("Executar Backtest"):
          try:
-             check, order_id = Iq.buy(amount, selected_asset, signal['action'], expirations_mode)
-             if check:
-                 st.success(f"Ordem executada: ID {order_id}")
-                 time.sleep(expirations_mode * 60)
-                 result = Iq.check_win_v2(order_id)
-                 st.metric("Resultado", f"{'Lucro' if result > 0 else 'Perda' if result < 0 else 'Neutro'}", delta=f"{result:.2f}")
-             else:
-                 st.error("Falha ao executar ordem")
-         except Exception as e:
-             st.error(f"Erro ao executar ordem: {str(e)}")
+             candles = Iq.get_candles(selected_asset, timeframe_seconds, 1000, time.time())
+             signals = []
+             for i in range(14, len(candles)):
+                 slice = candles[i-14:i]
+                 rsi = calculate_rsi(slice)
+                 sma = calculate_sma(slice)
+                 pattern = detect_candle_pattern(slice)
+                 signal = generate_signal({'rsi': rsi, 'sma': sma, 'pattern': pattern, 'lastClose': slice[-1]['close']})
+                 actual = 'call' if candles[i]['close'] > candles[i-1]['close'] else 'put'
+                 signals.append({'signal': signal['action'], 'actual': actual})
